@@ -250,7 +250,7 @@ RUN;
 /* MAILFLAG(0.88) TRAVEL(0.29) PCOWN(0.21) ***/
 
 
-/**** CHECKING LINEARITY ASSUMPTIONS BETWEEN CONTINUOUS INDEPENDENT VARIABLES AND THE DEPENDENT VARIABLE ***/
+/**** CHECKING NORMALITY ASSUMPTIONS BETWEEN CONTINUOUS INDEPENDENT VARIABLES AND THE DEPENDENT VARIABLE ***/
 
 PROC UNIVARIATE DATA=CLASS.LOGIS;
 VAR REVENUE MOU RECCHRGE DIRECTAS OVERAGE ROAM CHANGEM CHANGER DROPVCE BLCKVCE UNANSVCE CUSTCARE THREEWAY MOUREC
@@ -319,23 +319,23 @@ RUN;
 
 /************* Splitting the data into training and testing samples ***************/
 
-DATA TEST;
+DATA TRAIN;
 SET LOGIS;
 WHERE calibrat=1;
 RUN;
 
-DATA VALID;
+DATA TEST;
 SET LOGIS;
 WHERE calibrat=0;
 RUN;
 
 /****** Iteration 1-Using all the variables ********/
 
-PROC CONTENTS DATA=TEST VARNUM;
+PROC CONTENTS DATA=TRAIN VARNUM;
 RUN;
 
 ods pdf file='/folders/myfolders/log';
-PROC LOGISTIC data = TEST descending /*by default it models for zero(ascending option)*/ 
+PROC LOGISTIC data = TRAIN descending /*by default it models for zero(ascending option)*/ 
 outest=model;
 MODEL CHURN=
 REVENUE
@@ -408,7 +408,7 @@ run;
 
 
 /****** Iteration 2-Removing the less significant variables(Based on Factor analysis, Correlation Matrix etc) ********/
-PROC LOGISTIC data = TEST descending /*by default it models for zero(ascending option)*/ 
+PROC LOGISTIC data = TRAIN descending /*by default it models for zero(ascending option)*/ 
 outest=model;
 MODEL CHURN=
 REVENUE
@@ -484,7 +484,40 @@ run;
 
 
 
-/************ Testing Sample **************/
+/************ TRAINING Sample **************/
+DATA TRAIN1;
+SET TRAIN;
+ODDS_RATIO=EXP(-1.5402+((REVENUE*0.3963)+(MOU*-0.1472)+(RECCHRGE*-0.00864)+(OVERAGE*0.00067)+(ROAM*0.0126)+
+			(CHANGEM*-0.00054)+(CHANGER*0.00221)+(DROPVCE*0.00736)+(UNANSVCE*0.0434)+(THREEWAY*-0.0758)+(INCALLS*-0.00404)+
+			(PEAKVCE*-0.0619)+(DROPBLK*0.00593)+(MONTHS*-0.00852)+(UNIQSUBS*0.0846)+(PHONES*0.0763)+(EQPDAYS*0.2948)+
+			(AGE1*-0.00452)+(CHILDREN*0.1034)+(CREDITC*-0.1636)+(CREDITDE*-0.3595)+(PRIZMUB*-0.0499)+(REFURB*0.256)+
+			(WEBCAP*-0.2429)+(MARRYNO*-0.0478)+(MAILRES*-0.1288)+(NEWCELLY*-0.0774)+(INCOME*-0.0129)+(CREDITAD*-0.1743)));
+Prob=(Odds_ratio/(1+Odds_ratio));
+if prob >0.5 then Pred_default=1; else pred_default=0;
+run;
+
+proc freq data=TRAIN1; tables Pred_default;
+run;
+
+proc sort data=TRAIN1;
+by descending PROB;
+run;
+
+proc rank data=TRAIN1 groups=10 out=TRAIN2;
+var PROB;
+ranks prob_decile;
+run;
+
+proc sql;
+select prob_decile, count(prob_decile) as cnt,sum(churn) as default_cnt, min(PROB) as min_p, max(PROB) as max_p from TRAIN2
+group by prob_decile order by prob_decile desc ;
+quit;
+
+
+
+
+
+/************* TESTING Sample ************/
 DATA TEST1;
 SET TEST;
 ODDS_RATIO=EXP(-1.5402+((REVENUE*0.3963)+(MOU*-0.1472)+(RECCHRGE*-0.00864)+(OVERAGE*0.00067)+(ROAM*0.0126)+
@@ -510,39 +543,6 @@ run;
 
 proc sql;
 select prob_decile, count(prob_decile) as cnt,sum(churn) as default_cnt, min(PROB) as min_p, max(PROB) as max_p from TEST2
-group by prob_decile order by prob_decile desc ;
-quit;
-
-
-
-
-
-/************* Validation Sample ************/
-DATA VALID1;
-SET VALID;
-ODDS_RATIO=EXP(-1.5402+((REVENUE*0.3963)+(MOU*-0.1472)+(RECCHRGE*-0.00864)+(OVERAGE*0.00067)+(ROAM*0.0126)+
-			(CHANGEM*-0.00054)+(CHANGER*0.00221)+(DROPVCE*0.00736)+(UNANSVCE*0.0434)+(THREEWAY*-0.0758)+(INCALLS*-0.00404)+
-			(PEAKVCE*-0.0619)+(DROPBLK*0.00593)+(MONTHS*-0.00852)+(UNIQSUBS*0.0846)+(PHONES*0.0763)+(EQPDAYS*0.2948)+
-			(AGE1*-0.00452)+(CHILDREN*0.1034)+(CREDITC*-0.1636)+(CREDITDE*-0.3595)+(PRIZMUB*-0.0499)+(REFURB*0.256)+
-			(WEBCAP*-0.2429)+(MARRYNO*-0.0478)+(MAILRES*-0.1288)+(NEWCELLY*-0.0774)+(INCOME*-0.0129)+(CREDITAD*-0.1743)));
-Prob=(Odds_ratio/(1+Odds_ratio));
-if prob >0.5 then Pred_default=1; else pred_default=0;
-run;
-
-proc freq data=VALID1; tables Pred_default;
-run;
-
-proc sort data=VALID1;
-by descending PROB;
-run;
-
-proc rank data=VALID1 groups=10 out=VALID2;
-var PROB;
-ranks prob_decile;
-run;
-
-proc sql;
-select prob_decile, count(prob_decile) as cnt,sum(churn) as default_cnt, min(PROB) as min_p, max(PROB) as max_p from VALID2
 group by prob_decile order by prob_decile desc ;
 quit;
 

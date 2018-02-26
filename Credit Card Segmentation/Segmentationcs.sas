@@ -34,8 +34,8 @@ data customers;
 set customers;
 monthly_avg_pur=purchases/12;
 monthly_cash_adv=cash_advance/12;
-avgamtperpurchase=(purchases/purchases_frequency)*12;
-avgamtpercashadv=(cash_advance/cash_advance_frequency)*12;
+avgamtperpurchase=(purchases/purchases_frequency)/12;
+avgamtpercashadv=(cash_advance/cash_advance_frequency)/12;
 limitusage=balance/credit_limit;
 paymenttominpayment=payments/minimum_payments;
 run;
@@ -58,8 +58,8 @@ RUN;
 
 DATA CUSTOMERS;
 SET CUSTOMERS;
-IF avgamtperpurchase=. THEN avgamtperpurchase=25616.51;
-IF avgamtpercashadv=. THEN avgamtpercashadv=95949.49;
+IF avgamtperpurchase=. THEN avgamtperpurchase=177.8924407;
+IF avgamtpercashadv=. THEN avgamtpercashadv=666.3158921;
 RUN;
 
 /******************** Factor analysis *****************************/
